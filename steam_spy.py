@@ -1,7 +1,8 @@
 # -*- coding:utf-8 -*-
 import sys
-reload(sys)
-sys.setdefaultencoding('utf-8')
+if sys.version < '3':
+    reload(sys)
+    sys.setdefaultencoding('utf-8')
 
 import requests
 import re
@@ -9,7 +10,7 @@ from multiprocessing.dummy import Pool as ThreadPool
 from bs4 import BeautifulSoup as Soup
 
 from time import sleep
-from functimeout.timeout import timeout
+from timeout_decorator import timeout
 
 base_url = 'https://store.steampowered.com/'
 
@@ -33,7 +34,7 @@ steam_category['All'] = ''
 
 steam_search_url = base_url + 'search/?category1='
 
-@timeout(30)
+@timeout(15, use_signals=False)
 def safe_get_request(url, param, cookie):
     return requests.get(url, allow_redirects = False, params = param, cookies = cookie, timeout = 30)
 
@@ -65,11 +66,13 @@ def steam_read_dlc(page):
         response = safe_get_request(base_url + 'search/', param, cookie)
         messages = steam_read_page_content(Soup(response.text, 'lxml'))
         for message in messages:
-            if message.has_key('packageid'):
+            if 'packageid' in message:
                 print ('Subid: {id}\t\tTitle: {title}'.format(id=message['packageid'], title=message['title']))
             else:
                 print ('Appid: {id}\t\tTitle: {title}'.format(id=message['appid'], title=message['title']))
-    except:
+    except Exception as exp:
+        print ('Read Page {page} Error, Retry in 3s'.format(page=page))
+        sleep(3)
         steam_read_dlc(page)
 
 def steam_read_demo(page):
@@ -78,11 +81,13 @@ def steam_read_demo(page):
         response = safe_get_request(base_url + 'search/', param, cookie)
         messages = steam_read_page_content(Soup(response.text, 'lxml'))
         for message in messages:
-            if message.has_key('packageid'):
+            if 'packageid' in message:
                 print ('Subid: {id}\t\tTitle: {title}'.format(id=message['packageid'], title=message['title']))
             else:
                 print ('Appid: {id}\t\tTitle: {title}'.format(id=message['appid'], title=message['title']))
-    except:
+    except Exception as exp:
+        print ('Read Page {page} Error, Retry in 3s'.format(page=page))
+        sleep(3)
         steam_read_demo(page)
 
 def steam_read_game(page):
@@ -91,19 +96,21 @@ def steam_read_game(page):
         response = safe_get_request(base_url + 'search/', param, cookie)
         messages = steam_read_page_content(Soup(response.text, 'lxml'))
         for message in messages:
-            if message.has_key('packageid'):
+            if 'packageid' in message:
                 print ('Subid: {id}\t\tTitle: {title}'.format(id=message['packageid'], title=message['title']))
             else:
                 print ('Appid: {id}\t\tTitle: {title}'.format(id=message['appid'], title=message['title']))
-    except:
-        steam_read_demo(page)
+    except Exception as e:
+        print ('Read Page {page} Error, Retry in 3s'.format(page=page))
+        sleep(3)
+        steam_read_game(page)
 
 param = {'category1':steam_category['Game']}
 response = safe_get_request(base_url + 'search/', param, cookie)
 page_num = steam_read_page_num(Soup(response.text, 'lxml'))
 pages = range(1, page_num + 1)
 
-pool = ThreadPool(16)
+pool = ThreadPool(8)
 pool.map(steam_read_game, pages)
 
 pool.close()

@@ -60,6 +60,20 @@ def steam_read_page_content(soup):
         message['appid'] = content['data-ds-appid']
         message['title'] = content.find('span', 'title').string
         message['release_date'] = content.find('div', 'col search_released responsive_secondrow').string
+
+        discount_span = content.find('div', 'col search_discount responsive_secondrow').find('span')
+        is_discount = (discount_span != None)
+        if is_discount:
+            message['discount'] = discount_span.string
+
+            price_div = content.find('div', 'col search_price discounted responsive_secondrow')
+            message['original_price'] = price_div.find('strike').string
+            message['current_price'] = price_div.contents[len(price_div.contents)-1].replace('\t', '')
+        else:
+            message['discount'] = ''
+            message['current_price'] = content.find('div', 'col search_price responsive_secondrow').string.replace('\t', '').replace('\r\n', '')
+            message['original_price'] = message['current_price']
+
         content_messages.append(message)
     return content_messages
 
@@ -70,9 +84,9 @@ def steam_read_page(page, category, cookie):
         messages = steam_read_page_content(Soup(response.text, 'lxml'))
         for message in messages:
             if 'packageid' in message:
-                print ('Subid: {id}\t\tTitle: {title}'.format(id=message['packageid'], title=message['title']))
+                print ('Subid: {id}\t\tTitle: {title}\t{discount}'.format(id=message['packageid'], title=message['title'], discount=message['discount']))
             else:
-                print ('Appid: {id}\t\tTitle: {title}'.format(id=message['appid'], title=message['title']))
+                print ('Appid: {id}\t\tTitle: {title}\t{discount}'.format(id=message['appid'], title=message['title'], discount=message['discount']))
     except Exception as exp:
         print ('Read Page {page} in {type} Error, Retry in 3s'.format(page=page, type=category), file=sys.stderr)
         sleep(3)

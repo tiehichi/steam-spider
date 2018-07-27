@@ -27,16 +27,16 @@ cookie['Steam_Language'] = 'english'
 cookie['bShouldUseHTML5'] = '1'
 
 steam_category = {}
-steam_category['Game'] = '998'
-steam_category['Software'] = '994'
-steam_category['Video'] = '992'
-steam_category['DLC'] = '21'
-steam_category['Demo'] = '10'
-steam_category['Mod'] = '997'
-steam_category['Hardware'] = '993'
-steam_category['Trailer'] = '999'
-steam_category['Bundle'] = '996'
-steam_category['All'] = ''
+steam_category['game'] = '998'
+steam_category['software'] = '994'
+steam_category['video'] = '992'
+steam_category['dlc'] = '21'
+steam_category['demo'] = '10'
+steam_category['mod'] = '997'
+steam_category['hardware'] = '993'
+steam_category['trailer'] = '999'
+steam_category['bundle'] = '996'
+steam_category['all'] = ''
 
 
 @timeout(15, use_signals=False)
@@ -99,7 +99,7 @@ def steam_read_page(page, category, cookie):
         sleep(3)
         return steam_read_page(page, category, cookie)
 
-def steam_read_all_multithread(category, cookie, threads):
+def steam_read_all_multithread(category, cookie, threads, output_file):
     param = {'category1':category}
     pages = []
 
@@ -119,12 +119,12 @@ def steam_read_all_multithread(category, cookie, threads):
     print ('Waitting for write in csv')
 
     headers = ['id', 'type', 'title', 'release_date', 'discount', 'original_price', 'current_price']
-    with open('steam_message.csv', 'w') as f:
+    with open(output_file, 'w') as f:
         f_csv = csv.DictWriter(f, headers)
         f_csv.writeheader()
 
     for message in steam_messages:
-        with open('steam_message.csv', 'a') as f:
+        with open(output_file, 'a') as f:
             f_csv = csv.DictWriter(f, headers)
             f_csv.writerows(message)
 
@@ -133,12 +133,30 @@ if __name__ == '__main__':
 
     threads = 1
     category = 'All'
+    output_file = 'steam_message.csv'
 
-    opts, args = getopt.getopt(sys.argv[1:], 'j:c:')
+    categorys = ['game', 'software', 'video', 'dlc', 'demo', 'mod', 'hardware', 'trailer', 'bundle', 'all']
+    languages = ['bulgarian', 'czech', 'danish', 'dutch', 'english', 'finnish', 'french', 'greek', 'german',
+            'hungarian', 'italian', 'japanese', 'koreana', 'norwegian', 'polish', 'portuguese', 'brazilian',
+            'russian', 'romanian', 'spanish', 'swedish', 'schinese', 'tchinese', 'thai', 'turkish', 'ukrainian']
+
+    opts, args = getopt.getopt(sys.argv[1:], 'j:c:o:l:')
     for o, a in opts:
         if o == '-j':
             threads = int(a)
         elif o == '-c':
-            category = a
+            if a.lower() not in categorys:
+                print ('Category Not Supported')
+                exit()
+            else:
+                category = a.lower()
+        elif o == '-o':
+            output_file = a
+        elif o == '-l':
+            if a.lower() not in languages:
+                print ('Language Not Supported')
+                exit()
+            else:
+                cookie['Steam_Language'] = a.lower()
 
-    steam_read_all_multithread(steam_category[category], cookie, threads)
+    steam_read_all_multithread(steam_category[category], cookie, threads, output_file)

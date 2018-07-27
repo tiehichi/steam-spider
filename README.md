@@ -48,3 +48,11 @@ python steam_spider.py
     python steam_spider.py -j 8
     ```
     将以8线程对Steam上的信息进行爬取
+
+- `-o`
+    
+    指定输出文件名，默认为`steam_message.csv`
+
+- `-l`
+
+    指定输出语言，默认为`english`

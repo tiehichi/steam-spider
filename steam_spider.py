@@ -15,6 +15,7 @@ from time import sleep
 from timeout_decorator import timeout
 
 import getopt
+import csv
 
 base_url = 'https://store.steampowered.com/'
 
@@ -22,7 +23,7 @@ cookie = {}
 cookie['mature_content'] = '1'
 cookie['birthtime'] = '-157795199'
 cookie['lastagecheckage'] = '1-January-1965'
-cookie['Steam_Language'] = 'schinese'
+cookie['Steam_Language'] = 'english'
 cookie['bShouldUseHTML5'] = '1'
 
 steam_category = {}
@@ -34,6 +35,7 @@ steam_category['Demo'] = '10'
 steam_category['Mod'] = '997'
 steam_category['Hardware'] = '993'
 steam_category['Trailer'] = '999'
+steam_category['Bundle'] = '996'
 steam_category['All'] = ''
 
 
@@ -56,8 +58,15 @@ def steam_read_page_content(soup):
     for content in contents:
         message = {}
         if content.has_attr('data-ds-packageid'):
-            message['packageid'] = content['data-ds-packageid']
-        message['appid'] = content['data-ds-appid']
+            message['id'] = content['data-ds-packageid']
+            message['type'] = 'sub'
+        elif content.has_attr('data-ds-bundleid'):
+            message['id'] = content['data-ds-bundleid']
+            message['type'] = 'bundle'
+        else:
+            message['id'] = content['data-ds-appid']
+            message['type'] = 'app'
+
         message['title'] = content.find('span', 'title').string
         message['release_date'] = content.find('div', 'col search_released responsive_secondrow').string
 
@@ -71,7 +80,7 @@ def steam_read_page_content(soup):
             message['current_price'] = price_div.contents[len(price_div.contents)-1].replace('\t', '')
         else:
             message['discount'] = ''
-            message['current_price'] = content.find('div', 'col search_price responsive_secondrow').string.replace('\t', '').replace('\r\n', '')
+            message['current_price'] = content.find('div', 'col search_price responsive_secondrow').string.replace('\t', '').replace('\n', '').replace('\r', '')
             message['original_price'] = message['current_price']
 
         content_messages.append(message)
@@ -82,15 +91,13 @@ def steam_read_page(page, category, cookie):
     try:
         response = safe_get_request(base_url + 'search/', param, cookie)
         messages = steam_read_page_content(Soup(response.text, 'lxml'))
-        for message in messages:
-            if 'packageid' in message:
-                print ('Subid: {id}\t\tTitle: {title}\t{discount}'.format(id=message['packageid'], title=message['title'], discount=message['discount']))
-            else:
-                print ('Appid: {id}\t\tTitle: {title}\t{discount}'.format(id=message['appid'], title=message['title'], discount=message['discount']))
+
+        print ('Read Page {page} Success'.format(page=page))
+        return messages
     except Exception as exp:
-        print ('Read Page {page} in {type} Error, Retry in 3s'.format(page=page, type=category), file=sys.stderr)
+        print ('Read Page {page} Error, Retry in 3s'.format(page=page, type=category), file=sys.stderr)
         sleep(3)
-        steam_read_page(page, category, cookie)
+        return steam_read_page(page, category, cookie)
 
 def steam_read_all_multithread(category, cookie, threads):
     param = {'category1':category}
@@ -104,10 +111,22 @@ def steam_read_all_multithread(category, cookie, threads):
         return steam_read_all_multithread(category, cookie, threads)
 
     pool = ThreadPool(threads)
-    pool.map(lambda p: steam_read_page(p, category, cookie), pages)
+    steam_messages = pool.map(lambda p: steam_read_page(p, category, cookie), pages)
 
     pool.close()
     pool.join()
+
+    print ('Waitting for write in csv')
+
+    headers = ['id', 'type', 'title', 'release_date', 'discount', 'original_price', 'current_price']
+    with open('steam_message.csv', 'w') as f:
+        f_csv = csv.DictWriter(f, headers)
+        f_csv.writeheader()
+
+    for message in steam_messages:
+        with open('steam_message.csv', 'a') as f:
+            f_csv = csv.DictWriter(f, headers)
+            f_csv.writerows(message)
 
 
 if __name__ == '__main__':
